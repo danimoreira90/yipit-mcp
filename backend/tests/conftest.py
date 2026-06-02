@@ -13,7 +13,10 @@ from pathlib import Path
 
 import pytest_asyncio
 from dotenv import load_dotenv
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
+
+from backend.services.db import build_sessionmaker
+from db.seed import seed
 
 load_dotenv()
 
@@ -53,3 +56,18 @@ async def schema_engine() -> AsyncGenerator[AsyncEngine, None]:
         yield engine
     finally:
         await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def seeded_engine(schema_engine: AsyncEngine) -> AsyncEngine:
+    """Clean schema + the full CSV seed loaded. For read-only service tests."""
+    await seed(schema_engine)
+    return schema_engine
+
+
+@pytest_asyncio.fixture
+async def session(seeded_engine: AsyncEngine) -> AsyncGenerator[AsyncSession, None]:
+    """An AsyncSession over the seeded test database."""
+    maker = build_sessionmaker(seeded_engine)
+    async with maker() as db_session:
+        yield db_session
