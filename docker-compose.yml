@@ -1,0 +1,23 @@
+services:
+  db:
+    image: postgres:16
+    container_name: yipit_kpi_db
+    environment:
+      # Local dev creds (approved). Overridable via .env / environment — no real secret here (HR-6).
+      POSTGRES_USER: ${POSTGRES_USER:-kpi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kpi}
+      POSTGRES_DB: ${POSTGRES_DB:-kpi}
+    ports:
+      - "5432:5432"
+    volumes:
+      - kpi_pgdata:/var/lib/postgresql/data
+      # Runs once on first init: creates the separate test database (kpi_test).
+      - ./db/docker-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kpi} -d ${POSTGRES_DB:-kpi}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  kpi_pgdata:
