@@ -10,9 +10,20 @@ Search semantics per DATA-MODEL §6 + Daniel's task brief:
 
 from __future__ import annotations
 
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.services.companies import list_companies, list_sectors
+from backend.services.companies import list_companies, list_kpis, list_sectors
+from backend.services.errors import UnknownTicker
+from backend.services.models import KpiUnit
+
+_FIVE_KPIS = {
+    "ASP ($)",
+    "Global Net Added Subscribers",
+    "U.S. Net Added Subscribers",
+    "Total Revenue ($MM)",
+    "Units Sold",
+}
 
 
 async def test_list_sectors_distinct_sorted_18(session: AsyncSession) -> None:
@@ -68,3 +79,25 @@ async def test_list_companies_no_match_returns_empty(session: AsyncSession) -> N
 async def test_list_companies_blank_query_returns_all(session: AsyncSession) -> None:
     companies = await list_companies(session, query="   ")
     assert len(companies) == 20
+
+
+# --- list_kpis --------------------------------------------------------------
+
+
+async def test_list_kpis_returns_five_pairs_for_acme(session: AsyncSession) -> None:
+    kpis = await list_kpis(session, "ACME")
+    assert len(kpis) == 5
+    assert all(isinstance(k, KpiUnit) for k in kpis)
+    assert {k.kpi for k in kpis} == _FIVE_KPIS
+
+
+async def test_list_kpis_distinct_and_sorted(session: AsyncSession) -> None:
+    kpis = await list_kpis(session, "ACME")
+    pairs = [(k.kpi, k.unit) for k in kpis]
+    assert len(pairs) == len(set(pairs))  # distinct (kpi, unit)
+    assert [k.kpi for k in kpis] == sorted(k.kpi for k in kpis)  # stable-ordered by kpi
+
+
+async def test_list_kpis_unknown_ticker_raises(session: AsyncSession) -> None:
+    with pytest.raises(UnknownTicker):
+        await list_kpis(session, "ZZZ")  # error-contract path: raise, not []
