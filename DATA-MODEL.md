@@ -91,6 +91,7 @@ Tools map to how an investor-assistant would actually ask. Each returns structur
 
 - `list_sectors() -> [sector]`
 - `list_companies(sector?: str, query?: str) -> [{ticker, name, sector}]`
+  - `query` is a case-insensitive substring over `company_name`/`ticker`/`sector` (the search box hits the sector too); `sector` is the exact drill-down filter.
 - `list_kpis(ticker: str) -> [{kpi, unit}]`
 - `get_kpi_history(ticker: str, kpi: str, start?: date, end?: date) -> [{period, period_end, value, unit}]`
 - `get_qtd(ticker: str, kpi: str) -> {period, latest_as_of, latest_value, unit, trajectory: [{as_of, value}]}`
