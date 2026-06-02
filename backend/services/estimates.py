@@ -13,7 +13,16 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.services.errors import InvalidDateRange, NoQtdData, UnknownKpi, UnknownTicker
-from backend.services.models import HistoryPoint, QtdResult, QtdSnapshot
+from backend.services.models import (
+    Company,
+    CompanyOverview,
+    HistoryPoint,
+    KpiOverview,
+    LatestHistory,
+    LatestQtd,
+    QtdResult,
+    QtdSnapshot,
+)
 
 
 async def _validate_ticker_and_kpi(session: AsyncSession, ticker: str, kpi: str) -> None:
@@ -100,4 +109,63 @@ async def get_qtd(session: AsyncSession, ticker: str, kpi: str) -> QtdResult:
         latest_value=latest.value,
         unit=latest.unit,
         trajectory=[QtdSnapshot(as_of=r.as_of, value=r.value) for r in rows],
+    )
+
+
+async def get_company_overview(session: AsyncSession, ticker: str) -> CompanyOverview:
+    """The 'at a glance' view: the company plus, per KPI, its latest historical point
+    and its latest qtd snapshot. Each side is independently nullable and never
+    fabricated (no history -> None; no qtd -> None). Raises UnknownTicker if absent.
+
+    Bounded query count: three queries total (company, latest-per-kpi historical,
+    latest-per-kpi qtd) via DISTINCT ON — independent of the number of KPIs (no N+1).
+    """
+    company = (
+        await session.execute(
+            text("SELECT company_name, sector FROM companies WHERE ticker = :ticker"),
+            {"ticker": ticker},
+        )
+    ).first()
+    if company is None:
+        raise UnknownTicker(ticker)
+
+    history_rows = await session.execute(
+        text(
+            "SELECT DISTINCT ON (kpi) kpi, unit, period, value FROM kpi_estimates "
+            "WHERE ticker = :ticker AND estimate_type = 'historical' "
+            "ORDER BY kpi, period_start DESC"
+        ),
+        {"ticker": ticker},
+    )
+    qtd_rows = await session.execute(
+        text(
+            "SELECT DISTINCT ON (kpi) kpi, unit, as_of, value FROM kpi_estimates "
+            "WHERE ticker = :ticker AND estimate_type = 'qtd' "
+            "ORDER BY kpi, as_of DESC"
+        ),
+        {"ticker": ticker},
+    )
+
+    units: dict[str, str] = {}
+    history: dict[str, LatestHistory] = {}
+    for r in history_rows:
+        units[r.kpi] = r.unit
+        history[r.kpi] = LatestHistory(period=r.period, value=r.value)
+    qtd: dict[str, LatestQtd] = {}
+    for r in qtd_rows:
+        units[r.kpi] = r.unit
+        qtd[r.kpi] = LatestQtd(value=r.value, as_of=r.as_of)
+
+    kpis = [
+        KpiOverview(
+            kpi=name,
+            unit=units[name],
+            latest_history=history.get(name),
+            latest_qtd=qtd.get(name),
+        )
+        for name in sorted(units)
+    ]
+    return CompanyOverview(
+        company=Company(ticker=ticker, name=company.company_name, sector=company.sector),
+        kpis=kpis,
     )
