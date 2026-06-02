@@ -12,8 +12,8 @@ from datetime import date
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.services.errors import InvalidDateRange, UnknownKpi, UnknownTicker
-from backend.services.models import HistoryPoint
+from backend.services.errors import InvalidDateRange, NoQtdData, UnknownKpi, UnknownTicker
+from backend.services.models import HistoryPoint, QtdResult, QtdSnapshot
 
 
 async def _validate_ticker_and_kpi(session: AsyncSession, ticker: str, kpi: str) -> None:
@@ -71,3 +71,33 @@ async def get_kpi_history(
         HistoryPoint(period=r.period, period_end=r.period_end, value=r.value, unit=r.unit)
         for r in result
     ]
+
+
+async def get_qtd(session: AsyncSession, ticker: str, kpi: str) -> QtdResult:
+    """Quarter-to-date estimate for (ticker, kpi): the full intra-quarter trajectory
+    (qtd snapshots ordered by as_of) plus the latest snapshot (MAX(as_of)).
+
+    Validates ticker/kpi (UnknownTicker / UnknownKpi). A known pair that reports the
+    kpi but has no qtd snapshots raises NoQtdData — distinct from an unknown pair.
+    """
+    await _validate_ticker_and_kpi(session, ticker, kpi)
+
+    result = await session.execute(
+        text(
+            "SELECT period, as_of, value, unit FROM kpi_estimates "
+            "WHERE ticker = :ticker AND kpi = :kpi AND estimate_type = 'qtd' ORDER BY as_of"
+        ),
+        {"ticker": ticker, "kpi": kpi},
+    )
+    rows = result.all()
+    if not rows:
+        raise NoQtdData(ticker, kpi)
+
+    latest = rows[-1]  # rows are ordered by as_of ascending, so the last is MAX(as_of)
+    return QtdResult(
+        period=latest.period,
+        latest_as_of=latest.as_of,
+        latest_value=latest.value,
+        unit=latest.unit,
+        trajectory=[QtdSnapshot(as_of=r.as_of, value=r.value) for r in rows],
+    )
