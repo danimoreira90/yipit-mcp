@@ -11,10 +11,11 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.services.errors import InvalidDateRange, UnknownKpi, UnknownTicker
-from backend.services.estimates import get_kpi_history
+from backend.services.errors import InvalidDateRange, NoQtdData, UnknownKpi, UnknownTicker
+from backend.services.estimates import get_kpi_history, get_qtd
 from backend.services.models import HistoryPoint
 
 _ASP = "ASP ($)"
@@ -78,3 +79,49 @@ async def test_history_unknown_ticker_raises(session: AsyncSession) -> None:
 async def test_history_unknown_kpi_raises(session: AsyncSession) -> None:
     with pytest.raises(UnknownKpi):
         await get_kpi_history(session, "ACME", "Revenue")  # not one of the 5 valid KPIs
+
+
+# --- get_qtd ----------------------------------------------------------------
+
+_QTD_AS_OFS = [date(2026, 1, 31), date(2026, 2, 15), date(2026, 2, 28), date(2026, 3, 15)]
+
+
+async def test_qtd_trajectory_four_points_ordered_by_as_of(session: AsyncSession) -> None:
+    qtd = await get_qtd(session, "ACME", _ASP)
+    as_ofs = [snap.as_of for snap in qtd.trajectory]
+    assert len(as_ofs) == 4
+    assert as_ofs == sorted(as_ofs)  # ordered by as_of
+    assert as_ofs == _QTD_AS_OFS
+
+
+async def test_qtd_latest_is_max_as_of_snapshot(session: AsyncSession) -> None:
+    qtd = await get_qtd(session, "ACME", _ASP)
+    assert qtd.period == "2026Q1"
+    assert qtd.unit == "$"
+    assert qtd.latest_as_of == date(2026, 3, 15)  # MAX(as_of)
+    assert qtd.latest_value == qtd.trajectory[-1].value  # the latest snapshot's value
+
+
+async def test_qtd_unknown_ticker_raises(session: AsyncSession) -> None:
+    with pytest.raises(UnknownTicker):
+        await get_qtd(session, "ZZZ", _ASP)
+
+
+async def test_qtd_unknown_kpi_raises(session: AsyncSession) -> None:
+    with pytest.raises(UnknownKpi):
+        await get_qtd(session, "ACME", "Revenue")
+
+
+async def test_qtd_known_pair_with_no_qtd_rows_raises_noqtddata(session: AsyncSession) -> None:
+    # Remove ACME 'ASP ($)' qtd rows within this transaction: the pair still has history
+    # (so ticker + kpi are valid), but no qtd snapshots -> NoQtdData, distinct from the
+    # Unknown* errors.
+    await session.execute(
+        text(
+            "DELETE FROM kpi_estimates "
+            "WHERE ticker = 'ACME' AND kpi = :kpi AND estimate_type = 'qtd'"
+        ),
+        {"kpi": _ASP},
+    )
+    with pytest.raises(NoQtdData):
+        await get_qtd(session, "ACME", _ASP)
