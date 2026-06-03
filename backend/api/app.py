@@ -8,6 +8,7 @@ exception handlers, so route bodies stay one line.
 from __future__ import annotations
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from backend.api.schemas import PublishEstimateRequest
@@ -19,6 +20,14 @@ from backend.services.models import Company, KpiEstimate
 def create_app(service: KpiService) -> FastAPI:
     """Build the API, wiring routes to the injected service facade."""
     app = FastAPI(title="YipitData KPI API")
+
+    # Allow the Vite dev origin to call the API from the browser (read + publish).
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:5173"],
+        allow_methods=["GET", "POST"],
+        allow_headers=["*"],
+    )
 
     async def unknown_ticker_handler(request: Request, exc: Exception) -> JSONResponse:
         return JSONResponse(
