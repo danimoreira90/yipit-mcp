@@ -16,6 +16,7 @@ from backend.services.models import (
     Company,
     CompanyOverview,
     HistoryPoint,
+    KpiEstimate,
     KpiUnit,
     QtdResult,
 )
@@ -52,3 +53,7 @@ class KpiService:
     async def get_company_overview(self, ticker: str) -> CompanyOverview:
         async with self._sessionmaker() as session:
             return await estimates.get_company_overview(session, ticker)
+
+    async def list_company_estimates(self, ticker: str) -> list[KpiEstimate]:
+        async with self._sessionmaker() as session:
+            return await estimates.list_company_estimates(session, ticker)

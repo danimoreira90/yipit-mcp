@@ -17,6 +17,7 @@ from backend.services.models import (
     Company,
     CompanyOverview,
     HistoryPoint,
+    KpiEstimate,
     KpiOverview,
     LatestHistory,
     LatestQtd,
@@ -169,3 +170,39 @@ async def get_company_overview(session: AsyncSession, ticker: str) -> CompanyOve
         company=Company(ticker=ticker, name=company.company_name, sector=company.sector),
         kpis=kpis,
     )
+
+
+async def list_company_estimates(session: AsyncSession, ticker: str) -> list[KpiEstimate]:
+    """Every estimate (historical and qtd) for a company. Raises UnknownTicker if the
+    company doesn't exist. Ordered deterministically in-service (codepoint kpi, then
+    period_start, type, as_of) — locale-independent, like the other text orderings.
+    """
+    exists = await session.scalar(
+        text("SELECT 1 FROM companies WHERE ticker = :ticker"), {"ticker": ticker}
+    )
+    if not exists:
+        raise UnknownTicker(ticker)
+
+    result = await session.execute(
+        text(
+            "SELECT ticker, kpi, unit, period, period_start, period_end, "
+            "estimate_type, value, as_of FROM kpi_estimates WHERE ticker = :ticker"
+        ),
+        {"ticker": ticker},
+    )
+    rows = [
+        KpiEstimate(
+            ticker=r.ticker,
+            kpi=r.kpi,
+            unit=r.unit,
+            period=r.period,
+            period_start=r.period_start,
+            period_end=r.period_end,
+            estimate_type=r.estimate_type,
+            value=r.value,
+            as_of=r.as_of,
+        )
+        for r in result
+    ]
+    rows.sort(key=lambda e: (e.kpi, e.period_start, e.estimate_type.value, e.as_of or date.min))
+    return rows
