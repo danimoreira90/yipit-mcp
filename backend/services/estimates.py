@@ -12,7 +12,8 @@ from datetime import date
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.services.errors import InvalidDateRange, NoQtdData, UnknownKpi, UnknownTicker
+from backend.services.companies import require_company
+from backend.services.errors import InvalidDateRange, NoQtdData, UnknownKpi
 from backend.services.models import (
     Company,
     CompanyOverview,
@@ -29,11 +30,7 @@ from backend.services.models import (
 async def _validate_ticker_and_kpi(session: AsyncSession, ticker: str, kpi: str) -> None:
     """Raise UnknownTicker if the company doesn't exist, else UnknownKpi if it does not
     report that kpi (the message lists the KPIs it does report)."""
-    exists = await session.scalar(
-        text("SELECT 1 FROM companies WHERE ticker = :ticker"), {"ticker": ticker}
-    )
-    if not exists:
-        raise UnknownTicker(ticker)
+    await require_company(session, ticker)
 
     rows = await session.execute(
         text("SELECT DISTINCT kpi FROM kpi_estimates WHERE ticker = :ticker"), {"ticker": ticker}
@@ -121,14 +118,7 @@ async def get_company_overview(session: AsyncSession, ticker: str) -> CompanyOve
     Bounded query count: three queries total (company, latest-per-kpi historical,
     latest-per-kpi qtd) via DISTINCT ON — independent of the number of KPIs (no N+1).
     """
-    company = (
-        await session.execute(
-            text("SELECT company_name, sector FROM companies WHERE ticker = :ticker"),
-            {"ticker": ticker},
-        )
-    ).first()
-    if company is None:
-        raise UnknownTicker(ticker)
+    company = await require_company(session, ticker)
 
     history_rows = await session.execute(
         text(
@@ -177,11 +167,7 @@ async def list_company_estimates(session: AsyncSession, ticker: str) -> list[Kpi
     company doesn't exist. Ordered deterministically in-service (codepoint kpi, then
     period_start, type, as_of) — locale-independent, like the other text orderings.
     """
-    exists = await session.scalar(
-        text("SELECT 1 FROM companies WHERE ticker = :ticker"), {"ticker": ticker}
-    )
-    if not exists:
-        raise UnknownTicker(ticker)
+    await require_company(session, ticker)
 
     result = await session.execute(
         text(

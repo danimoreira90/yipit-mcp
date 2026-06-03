@@ -12,11 +12,27 @@ environment); for ≤20-row lists the cost is irrelevant.
 
 from __future__ import annotations
 
-from sqlalchemy import text
+from typing import Any
+
+from sqlalchemy import Row, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.services.errors import UnknownTicker
 from backend.services.models import Company, KpiUnit
+
+
+async def require_company(session: AsyncSession, ticker: str) -> Row[Any]:
+    """Fetch a company's (company_name, sector), raising UnknownTicker if it doesn't
+    exist. The single existence guard shared by every ticker-scoped query."""
+    row = (
+        await session.execute(
+            text("SELECT company_name, sector FROM companies WHERE ticker = :ticker"),
+            {"ticker": ticker},
+        )
+    ).first()
+    if row is None:
+        raise UnknownTicker(ticker)
+    return row
 
 
 async def list_sectors(session: AsyncSession) -> list[str]:
@@ -61,11 +77,7 @@ async def list_kpis(session: AsyncSession, ticker: str) -> list[KpiUnit]:
     Raises UnknownTicker if the ticker does not exist — an unknown company is the
     error-contract path, distinct from a known company that simply has no rows.
     """
-    exists = await session.scalar(
-        text("SELECT 1 FROM companies WHERE ticker = :ticker"), {"ticker": ticker}
-    )
-    if not exists:
-        raise UnknownTicker(ticker)
+    await require_company(session, ticker)
 
     result = await session.execute(
         text("SELECT DISTINCT kpi, unit FROM kpi_estimates WHERE ticker = :ticker"),
