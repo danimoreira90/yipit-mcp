@@ -9,6 +9,7 @@ the fixture company throughout.
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 
 import pytest
 from sqlalchemy import text
@@ -28,6 +29,13 @@ async def test_history_full_series_ordered_by_period_start(session: AsyncSession
     periods = [h.period for h in history]
     assert periods == sorted(periods)  # YYYYQn sorts chronologically == period_start order
     assert all(h.unit == "$" for h in history)
+
+
+async def test_history_first_value_matches_source(session: AsyncSession) -> None:
+    # Ground truth from kpi_sample_2000.csv: ACME ASP ($) 2022Q1 historical = 128.67.
+    history = await get_kpi_history(session, "ACME", _ASP)
+    assert history[0].period == "2022Q1"
+    assert history[0].value == Decimal("128.67")
 
 
 async def test_history_excludes_qtd(session: AsyncSession) -> None:
@@ -100,6 +108,12 @@ async def test_qtd_latest_is_max_as_of_snapshot(session: AsyncSession) -> None:
     assert qtd.unit == "$"
     assert qtd.latest_as_of == date(2026, 3, 15)  # MAX(as_of)
     assert qtd.latest_value == qtd.trajectory[-1].value  # the latest snapshot's value
+
+
+async def test_qtd_latest_value_matches_source(session: AsyncSession) -> None:
+    # Ground truth: ACME ASP ($) latest qtd snapshot (2026-03-15) = 164.22.
+    qtd = await get_qtd(session, "ACME", _ASP)
+    assert qtd.latest_value == Decimal("164.22")
 
 
 async def test_qtd_unknown_ticker_raises(session: AsyncSession) -> None:

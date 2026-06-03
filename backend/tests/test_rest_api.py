@@ -6,6 +6,7 @@ layer stays DB-free (all access via the service facade).
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
+from decimal import Decimal
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -32,6 +33,11 @@ async def test_get_company_estimates_success(client: AsyncClient) -> None:
     required = {"ticker", "kpi", "unit", "period", "estimate_type", "value", "as_of"}
     assert all(required <= row.keys() for row in data)
     assert all(row["ticker"] == "ACME" for row in data)
+    # Ground truth: deterministic ordering puts ASP ($) 2022Q1 historical (128.67) first.
+    first = data[0]
+    assert first["kpi"] == "ASP ($)"
+    assert first["period"] == "2022Q1"
+    assert Decimal(str(first["value"])) == Decimal("128.67")
 
 
 async def test_get_company_estimates_unknown_ticker_returns_404(client: AsyncClient) -> None:
