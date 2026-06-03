@@ -68,10 +68,10 @@ async def test_overview_kpi_with_no_qtd_has_none_qtd_others_unaffected(
 
     asp = _kpi(overview, _ASP)
     assert asp.latest_qtd is None  # not fabricated
-    assert asp.latest_history is not None  # history is untouched
+    assert asp.latest_history is not None
 
     other = _kpi(overview, "Units Sold")
-    assert other.latest_qtd is not None  # other KPIs unaffected
+    assert other.latest_qtd is not None
 
 
 async def test_overview_unknown_ticker_raises(session: AsyncSession) -> None:

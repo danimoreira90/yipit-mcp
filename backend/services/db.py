@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import (
 
 
 def build_engine(url: str | None = None) -> AsyncEngine:
-    """Create an async engine. Does not connect until first use."""
+    """Does not connect until first use (lazy)."""
     if url is None:
         load_dotenv()
         url = os.environ["DATABASE_URL"]

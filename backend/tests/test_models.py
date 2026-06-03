@@ -26,8 +26,6 @@ from backend.services.models import (
     QtdSnapshot,
 )
 
-# --- EstimateType: {historical, qtd} only -----------------------------------
-
 
 def test_estimate_type_has_exactly_two_members() -> None:
     assert {e.value for e in EstimateType} == {"historical", "qtd"}
@@ -36,9 +34,6 @@ def test_estimate_type_has_exactly_two_members() -> None:
 def test_estimate_type_rejects_unknown_value() -> None:
     with pytest.raises(ValueError):
         EstimateType("bogus")
-
-
-# --- HistoryPoint carries unit + period + value -----------------------------
 
 
 def test_history_point_carries_unit_period_value() -> None:
@@ -55,9 +50,6 @@ def test_history_point_requires_value() -> None:
         HistoryPoint.model_validate(
             {"period": "2024Q1", "period_end": date(2024, 3, 31), "unit": "$"}  # no value
         )
-
-
-# --- QtdResult requires as_of -----------------------------------------------
 
 
 def test_qtd_result_requires_latest_as_of() -> None:
@@ -77,9 +69,6 @@ def test_qtd_result_round_trips_trajectory() -> None:
     )
     assert result.latest_as_of == date(2026, 3, 15)
     assert result.trajectory[0].value == Decimal("4")
-
-
-# --- KpiEstimate uses the EstimateType enum ---------------------------------
 
 
 def test_kpi_estimate_rejects_unknown_estimate_type() -> None:
@@ -116,9 +105,6 @@ def test_kpi_estimate_coerces_valid_estimate_type_to_enum() -> None:
     assert estimate.estimate_type is EstimateType.HISTORICAL
 
 
-# --- CompanyOverview composes; the two sides are independently nullable ------
-
-
 def test_company_overview_allows_independent_null_sides() -> None:
     overview = CompanyOverview(
         company=Company(ticker="ACME", name="Acme E-commerce", sector="E-commerce"),
@@ -139,9 +125,6 @@ def test_kpi_unit_pairs_kpi_with_unit() -> None:
     ku = KpiUnit(kpi="Units Sold", unit="units")
     assert ku.kpi == "Units Sold"
     assert ku.unit == "units"
-
-
-# --- typed errors carry their offending context -----------------------------
 
 
 def test_unknown_ticker_carries_value() -> None:

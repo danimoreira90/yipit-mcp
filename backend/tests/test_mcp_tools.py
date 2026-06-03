@@ -72,9 +72,6 @@ async def test_tools_are_registered_with_docstrings_and_typed_params(
     assert set(tools["list_companies"].inputSchema["properties"]) == {"sector", "query"}
 
 
-# --- remaining tools: success paths -----------------------------------------
-
-
 async def test_list_kpis_tool_matches_service(
     mcp_server: FastMCP, session: AsyncSession
 ) -> None:
@@ -113,9 +110,6 @@ async def test_get_company_overview_tool_matches_service(
     async with Client(mcp_server) as client:
         result = await client.call_tool("get_company_overview", {"ticker": "ACME"})
     assert result.structured_content == expected.model_dump(mode="json")
-
-
-# --- error contract: typed service errors -> clean, actionable MCP errors ----
 
 
 async def test_get_qtd_unknown_ticker_returns_actionable_toolerror(

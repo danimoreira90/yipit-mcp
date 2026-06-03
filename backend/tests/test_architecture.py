@@ -51,8 +51,8 @@ def _violations(module: Path) -> list[str]:
 def test_fitness_function_actually_covers_the_transports() -> None:
     # Guard against a vacuous pass if discovery breaks: the known transports must be seen.
     names = {p.name for p in _transport_modules()}
-    assert "server.py" in names  # backend/mcp/server.py
-    assert "app.py" in names  # backend/api/app.py
+    assert "server.py" in names
+    assert "app.py" in names
 
 
 @pytest.mark.parametrize(

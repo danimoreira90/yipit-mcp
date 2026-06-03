@@ -48,9 +48,6 @@ async def test_get_company_estimates_unknown_ticker_returns_404(client: AsyncCli
     assert "ZZZ" in body["detail"]
 
 
-# --- POST /companies/{ticker}/estimates (publish) ---------------------------
-
-
 def _qtd_body(value: str, as_of: str, kpi: str = "ASP ($)") -> dict[str, str]:
     return {
         "kpi": kpi,
@@ -138,9 +135,6 @@ async def test_post_estimate_as_of_type_mismatch_returns_422(client: AsyncClient
     assert response.status_code == 422
 
 
-# --- GET /sectors and GET /companies (browse) -------------------------------
-
-
 async def test_get_sectors_returns_18_sorted(client: AsyncClient) -> None:
     response = await client.get("/sectors")
     assert response.status_code == 200
@@ -156,7 +150,7 @@ async def test_get_companies_returns_all_20_deterministic(client: AsyncClient) -
     assert len(companies) == 20
     assert set(companies[0].keys()) == {"ticker", "name", "sector"}  # Option A shape
     tickers = [c["ticker"] for c in companies]
-    assert tickers == sorted(tickers)  # deterministic order by ticker
+    assert tickers == sorted(tickers)
 
 
 async def test_get_companies_filter_by_sector_returns_cloud_three(client: AsyncClient) -> None:

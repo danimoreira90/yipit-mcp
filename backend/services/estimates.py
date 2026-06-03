@@ -102,7 +102,7 @@ async def get_qtd(session: AsyncSession, ticker: str, kpi: str) -> QtdResult:
     if not rows:
         raise NoQtdData(ticker, kpi)
 
-    latest = rows[-1]  # rows are ordered by as_of ascending, so the last is MAX(as_of)
+    latest = rows[-1]  # ascending as_of, so the last row is MAX(as_of)
     return QtdResult(
         period=latest.period,
         latest_as_of=latest.as_of,
@@ -208,9 +208,7 @@ async def _unit_for_kpi(session: AsyncSession, kpi: str) -> str:
     return unit
 
 
-# Upsert statements. The ON CONFLICT target matches the matching partial-unique index, and
-# the estimate_type / as_of literals honour the as_of_matches_type CHECK. All user values
-# are bound parameters — nothing from the request is interpolated into the SQL text.
+# Conflict target = the partial-unique index for this estimate_type; all values bound (no injection).
 _RETURNING = (
     "RETURNING ticker, kpi, unit, period, period_start, period_end, estimate_type, value, as_of"
 )

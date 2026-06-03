@@ -26,8 +26,7 @@ def create_app(service: KpiService) -> FastAPI:
         )
 
     async def unknown_kpi_handler(request: Request, exc: Exception) -> JSONResponse:
-        # 422: the body is well-formed but the kpi value is not one of the dataset's KPIs
-        # (a data-driven set Pydantic can't enumerate at schema-build time).
+        # 422, not 404: well-formed body, but the kpi isn't one of the dataset's (data-driven) KPIs.
         return JSONResponse(
             status_code=422, content={"error": "unknown_kpi", "detail": str(exc)}
         )
@@ -39,8 +38,7 @@ def create_app(service: KpiService) -> FastAPI:
         return await service.list_sectors()
 
     async def list_companies(sector: str | None = None, q: str | None = None) -> list[Company]:
-        # `sector` is an exact filter; `q` is a free-text substring over name/ticker/sector.
-        # An empty result is a valid empty list (no 404).
+        # An empty result is a valid empty list, never a 404.
         return await service.list_companies(sector=sector, query=q)
 
     async def get_company_estimates(ticker: str) -> list[KpiEstimate]:

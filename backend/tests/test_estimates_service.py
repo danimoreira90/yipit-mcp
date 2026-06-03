@@ -76,7 +76,7 @@ async def test_history_valid_window_with_no_rows_returns_empty(session: AsyncSes
     history = await get_kpi_history(
         session, "ACME", _ASP, start=date(2030, 1, 1), end=date(2030, 12, 31)
     )
-    assert history == []  # empty, not an error
+    assert history == []
 
 
 async def test_history_unknown_ticker_raises(session: AsyncSession) -> None:
@@ -86,10 +86,8 @@ async def test_history_unknown_ticker_raises(session: AsyncSession) -> None:
 
 async def test_history_unknown_kpi_raises(session: AsyncSession) -> None:
     with pytest.raises(UnknownKpi):
-        await get_kpi_history(session, "ACME", "Revenue")  # not one of the 5 valid KPIs
+        await get_kpi_history(session, "ACME", "Revenue")
 
-
-# --- get_qtd ----------------------------------------------------------------
 
 _QTD_AS_OFS = [date(2026, 1, 31), date(2026, 2, 15), date(2026, 2, 28), date(2026, 3, 15)]
 
@@ -98,7 +96,7 @@ async def test_qtd_trajectory_four_points_ordered_by_as_of(session: AsyncSession
     qtd = await get_qtd(session, "ACME", _ASP)
     as_ofs = [snap.as_of for snap in qtd.trajectory]
     assert len(as_ofs) == 4
-    assert as_ofs == sorted(as_ofs)  # ordered by as_of
+    assert as_ofs == sorted(as_ofs)
     assert as_ofs == _QTD_AS_OFS
 
 
@@ -106,8 +104,8 @@ async def test_qtd_latest_is_max_as_of_snapshot(session: AsyncSession) -> None:
     qtd = await get_qtd(session, "ACME", _ASP)
     assert qtd.period == "2026Q1"
     assert qtd.unit == "$"
-    assert qtd.latest_as_of == date(2026, 3, 15)  # MAX(as_of)
-    assert qtd.latest_value == qtd.trajectory[-1].value  # the latest snapshot's value
+    assert qtd.latest_as_of == date(2026, 3, 15)
+    assert qtd.latest_value == qtd.trajectory[-1].value
 
 
 async def test_qtd_latest_value_matches_source(session: AsyncSession) -> None:
@@ -127,9 +125,8 @@ async def test_qtd_unknown_kpi_raises(session: AsyncSession) -> None:
 
 
 async def test_qtd_known_pair_with_no_qtd_rows_raises_noqtddata(session: AsyncSession) -> None:
-    # Remove ACME 'ASP ($)' qtd rows within this transaction: the pair still has history
-    # (so ticker + kpi are valid), but no qtd snapshots -> NoQtdData, distinct from the
-    # Unknown* errors.
+    # Delete ASP's qtd rows in-tx: ticker + kpi stay valid (history remains) but qtd is gone,
+    # so this is NoQtdData, distinct from the Unknown* errors.
     await session.execute(
         text(
             "DELETE FROM kpi_estimates "
@@ -139,9 +136,6 @@ async def test_qtd_known_pair_with_no_qtd_rows_raises_noqtddata(session: AsyncSe
     )
     with pytest.raises(NoQtdData):
         await get_qtd(session, "ACME", _ASP)
-
-
-# --- list_company_estimates (all estimates for a company) -------------------
 
 
 async def test_list_company_estimates_returns_all_history_and_qtd(

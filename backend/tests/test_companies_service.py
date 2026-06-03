@@ -29,8 +29,8 @@ _FIVE_KPIS = {
 async def test_list_sectors_distinct_sorted_18(session: AsyncSession) -> None:
     sectors = await list_sectors(session)
     assert len(sectors) == 18
-    assert len(set(sectors)) == 18  # distinct
-    assert sectors == sorted(sectors)  # sorted
+    assert len(set(sectors)) == 18
+    assert sectors == sorted(sectors)
 
 
 async def test_list_companies_no_args_returns_all_20(session: AsyncSession) -> None:
@@ -40,7 +40,7 @@ async def test_list_companies_no_args_returns_all_20(session: AsyncSession) -> N
 
 async def test_list_companies_filter_by_sector(session: AsyncSession) -> None:
     companies = await list_companies(session, sector="E-commerce")
-    assert companies  # non-empty
+    assert companies
     assert all(c.sector == "E-commerce" for c in companies)
     assert any(c.ticker == "ACME" for c in companies)
 
@@ -81,9 +81,6 @@ async def test_list_companies_blank_query_returns_all(session: AsyncSession) -> 
     assert len(companies) == 20
 
 
-# --- list_kpis --------------------------------------------------------------
-
-
 async def test_list_kpis_returns_five_pairs_for_acme(session: AsyncSession) -> None:
     kpis = await list_kpis(session, "ACME")
     assert len(kpis) == 5
@@ -94,8 +91,8 @@ async def test_list_kpis_returns_five_pairs_for_acme(session: AsyncSession) -> N
 async def test_list_kpis_distinct_and_sorted(session: AsyncSession) -> None:
     kpis = await list_kpis(session, "ACME")
     pairs = [(k.kpi, k.unit) for k in kpis]
-    assert len(pairs) == len(set(pairs))  # distinct (kpi, unit)
-    assert [k.kpi for k in kpis] == sorted(k.kpi for k in kpis)  # stable-ordered by kpi
+    assert len(pairs) == len(set(pairs))
+    assert [k.kpi for k in kpis] == sorted(k.kpi for k in kpis)
 
 
 async def test_list_kpis_unknown_ticker_raises(session: AsyncSession) -> None:

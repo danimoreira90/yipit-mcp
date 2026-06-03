@@ -26,8 +26,7 @@ class PublishEstimateRequest(BaseModel):
 
     @model_validator(mode="after")
     def _as_of_matches_type(self) -> PublishEstimateRequest:
-        # Mirrors the DB as_of_matches_type CHECK: reject the mismatch at the boundary (422)
-        # rather than letting it reach the database.
+        # Mirror the DB as_of_matches_type CHECK at the boundary (422), before it reaches the DB.
         if self.estimate_type is EstimateType.HISTORICAL and self.as_of is not None:
             raise ValueError("historical estimates must not carry an as_of")
         if self.estimate_type is EstimateType.QTD and self.as_of is None:
