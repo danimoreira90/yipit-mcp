@@ -1,8 +1,11 @@
-"""Test harness: apply db/schema.sql to the test database and hand back an engine.
+"""Test harness for DB-backed tests, against a real Postgres (kpi_test) — never mocked.
 
-Minimal on purpose — the production engine/session factory arrives in Phase 3
-(Task 3.1). This fixture exists only so the schema tests can exercise the real
-constraints against a real Postgres (never mock the thing under test).
+Three layered fixtures:
+  - schema_engine: drops and recreates the schema from db/schema.sql (clean state per
+    test; used by the schema-constraint tests).
+  - seeded_engine: schema_engine + the full CSV seed loaded (for read-only service,
+    MCP, and REST tests).
+  - session: an AsyncSession over the seeded database.
 """
 
 from __future__ import annotations

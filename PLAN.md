@@ -234,7 +234,7 @@ Phases sequential as drawn; tasks within a phase mostly sequential (noted per ta
 ## Phase 9 — Final: README + architecture diagram
 
 #### Task 9.1: ADRs (the decisions feeding the README)
-- **Files:** `docs/adr/ADR-003-single-kpi_estimates-table.md`, `ADR-004-mcp-read-only.md`, `ADR-005-services-layer-two-transports.md` (spine + fitness fn), `ADR-006-postgres-cp.md`. (ADR-001 async + ADR-002 mcp-package-location already written.)
+- **Files:** `docs/adr/ADR-004-single-kpi_estimates-table.md`, `ADR-005-mcp-read-only.md`, `ADR-006-postgres-cp.md`. (Already written: ADR-001 async, ADR-002 mcp-package-location, ADR-003 kpi-service-facade.)
 - **Action:** short context → decision → consequences each (STANDARDS §6).
 - **Verification:** ADRs consistent with SPEC + code.
 - **Risk:** Low.

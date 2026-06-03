@@ -2,7 +2,7 @@
 
 Owns session lifecycle so the transports (MCP tools, REST routes) never open a
 session or run SQL — they call these session-free methods. One facade, two
-transports (the spine). RED stub: methods return [] until GREEN.
+transports (the spine). See docs/adr/ADR-003-kpi-service-facade.md.
 """
 
 from __future__ import annotations
