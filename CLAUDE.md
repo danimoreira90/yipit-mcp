@@ -45,7 +45,9 @@ grading: architecture + diagram + tech-choice justification + reliability/scale 
 ```yaml
 runtime: python 3.11+ (backend + mcp); node 20 LTS (frontend)
 package_manager: uv (python); npm (frontend)
-layout: light monorepo — /backend (FastAPI + services), /mcp (FastMCP), /frontend (Vite+React), /db (schema + seed)
+layout: light monorepo — /backend (FastAPI + services + /backend/mcp FastMCP), /frontend (Vite+React), /db (schema + seed)
+  # NOTE: the MCP server lives at backend/mcp (imported as backend.mcp), NOT a top-level /mcp —
+  # a top-level `mcp` package collides with the `mcp` PyPI SDK FastMCP depends on. See ADR-002.
 
 backend: FastAPI + Pydantic 2 + SQLAlchemy 2.0 (async) + asyncpg
 mcp: FastMCP (python) — wraps the SAME services/ layer as REST
@@ -175,7 +177,7 @@ db/schema.sql, db/seed.*     # schema and seed — review before applying
 ```
 Free to edit within role scope:
 ```
-backend/** (except tests), mcp/** (except tests), frontend/src/** (except tests)
+backend/** (except tests; includes backend/mcp/**), frontend/src/** (except tests)
 docs/sessions/**, docs/specs/**, docs/adr/** (new ADRs)
 ```
 

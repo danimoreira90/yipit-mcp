@@ -139,13 +139,13 @@ Phases sequential as drawn; tasks within a phase mostly sequential (noted per ta
 *Implements F8 + §6 error contract. Each tool: validate → call one service fn → return typed model. No logic in tool body. Six explicit defs — no registry (rule of three).*
 
 #### Task 4.1: Server bootstrap + `list_sectors`, `list_companies`
-- **Files:** `mcp/server.py`, `backend/tests/test_mcp_tools.py`
+- **Files:** `backend/mcp/server.py`, `backend/tests/test_mcp_tools.py`
 - **TDD:** RED — call tool fns directly (vs seeded DB): return typed model; docstrings exist. GREEN.
 - **Verification:** `uv run pytest backend/tests/test_mcp_tools.py -q` → green; paste. Imports side-effect-free.
 - **Dependencies:** Phase 3. **Risk:** Low.
 
 #### Task 4.2: Remaining tools + error mapping (`list_kpis`, `get_kpi_history`, `get_qtd`, `get_company_overview`)
-- **Files:** `mcp/server.py` (append), `backend/tests/test_mcp_tools.py` (append)
+- **Files:** `backend/mcp/server.py` (append), `backend/tests/test_mcp_tools.py` (append)
 - **TDD:** RED — typed models with provenance; service errors → §6 structured errors; docstrings name the kpi enum (F8). GREEN.
 - **Verification:** `uv run pytest backend/tests/test_mcp_tools.py -q` → green; paste. Smoke: launch server, list tools, call one. Paste.
 - **Exit:** six tools live; error contract = §6; enum documented.
@@ -177,7 +177,7 @@ Phases sequential as drawn; tasks within a phase mostly sequential (noted per ta
 
 #### Task 6.1: Spine fitness function (evolutionary architecture)
 - **File:** `backend/tests/test_architecture.py`
-- **TDD:** RED — a test that statically scans **both** `mcp/` **and** `backend/api/` and **fails** if any transport module references SQL execution / a DB session / asyncpg directly (only `services/` may). Prove it can fail against a deliberate violation, then assert the real tree is clean. GREEN.
+- **TDD:** RED — a test that statically scans **both** `backend/mcp/` **and** `backend/api/` and **fails** if any transport module references SQL execution / a DB session / asyncpg directly (only `services/` may). Prove it can fail against a deliberate violation, then assert the real tree is clean. GREEN.
 - **Verification:** `uv run pytest backend/tests/test_architecture.py -q` → green; paste.
 - **Exit:** the spine dependency rule is enforced for **both transports** in CI from now on.
 - **Dependencies:** Phases 4 + 5. **Risk:** Low.
@@ -234,7 +234,7 @@ Phases sequential as drawn; tasks within a phase mostly sequential (noted per ta
 ## Phase 9 — Final: README + architecture diagram
 
 #### Task 9.1: ADRs (the decisions feeding the README)
-- **Files:** `docs/adr/ADR-002-single-kpi_estimates-table.md`, `ADR-003-mcp-read-only.md`, `ADR-004-services-layer-two-transports.md` (spine + fitness fn), `ADR-005-postgres-cp.md`. (ADR-001 async already written.)
+- **Files:** `docs/adr/ADR-003-single-kpi_estimates-table.md`, `ADR-004-mcp-read-only.md`, `ADR-005-services-layer-two-transports.md` (spine + fitness fn), `ADR-006-postgres-cp.md`. (ADR-001 async + ADR-002 mcp-package-location already written.)
 - **Action:** short context → decision → consequences each (STANDARDS §6).
 - **Verification:** ADRs consistent with SPEC + code.
 - **Risk:** Low.
@@ -263,5 +263,5 @@ Phases sequential as drawn; tasks within a phase mostly sequential (noted per ta
 ## Protected Paths this plan touches
 - Editable-with-review (show diff): `pyproject.toml`, `.gitignore`, `docker-compose.yml`, `db/schema.sql`, `db/seed.py`, `package.json`.
 - Daniel owns (agent drafts only): `README.md`, `docs/architecture-diagram.md`.
-- Free within scope: `backend/**` (non-test), `mcp/**` (non-test), `frontend/src/**` (non-test), `docs/specs/**`, `docs/adr/**` (new).
+- Free within scope: `backend/**` (non-test, includes `backend/mcp/**`), `frontend/src/**` (non-test), `docs/specs/**`, `docs/adr/**` (new).
 - New tests created freely (HR-4); no existing test edited/skipped/softened.

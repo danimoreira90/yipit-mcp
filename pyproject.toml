@@ -42,6 +42,7 @@ target-version = "py311"
 line-length = 100
 
 [tool.pyright]
-include = ["backend", "mcp"]
+# MCP server lives under backend/mcp (ADR-002), so "backend" covers it.
+include = ["backend"]
 pythonVersion = "3.11"
 typeCheckingMode = "strict"
