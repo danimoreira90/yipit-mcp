@@ -11,14 +11,14 @@ from __future__ import annotations
 
 import asyncio
 import csv
-import os
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
-from dotenv import load_dotenv
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine
+
+from backend.services.db import build_engine
 
 CSV_PATH = Path(__file__).parent / "kpi_sample_2000.csv"
 
@@ -69,9 +69,8 @@ async def seed(engine: AsyncEngine, csv_path: Path = CSV_PATH) -> None:
 
 
 async def _main() -> None:
-    load_dotenv()
-    url = os.environ["DATABASE_URL"]
-    engine = create_async_engine(url)
+    # Resolve DATABASE_URL through the app's engine factory — one config path, shared with the API.
+    engine = build_engine()
     try:
         await seed(engine)
         print(f"Seeded from {CSV_PATH.name}")

@@ -11,8 +11,11 @@ services:
       - "5432:5432"
     volumes:
       - kpi_pgdata:/var/lib/postgresql/data
-      # Runs once on first init: creates the separate test database (kpi_test).
-      - ./db/docker-init:/docker-entrypoint-initdb.d:ro
+      # Run once on first container init, in alphabetical order:
+      #   01 — create the separate test database (kpi_test)
+      #   02 — apply the schema to the dev database (kpi)
+      - ./db/docker-init/01_create_test_db.sql:/docker-entrypoint-initdb.d/01_create_test_db.sql:ro
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/02_schema.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kpi} -d ${POSTGRES_DB:-kpi}"]
       interval: 5s
