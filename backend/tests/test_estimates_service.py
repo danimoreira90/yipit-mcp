@@ -15,8 +15,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.services.errors import InvalidDateRange, NoQtdData, UnknownKpi, UnknownTicker
-from backend.services.estimates import get_kpi_history, get_qtd
-from backend.services.models import HistoryPoint
+from backend.services.estimates import get_kpi_history, get_qtd, list_company_estimates
+from backend.services.models import EstimateType, HistoryPoint
 
 _ASP = "ASP ($)"
 
@@ -125,3 +125,21 @@ async def test_qtd_known_pair_with_no_qtd_rows_raises_noqtddata(session: AsyncSe
     )
     with pytest.raises(NoQtdData):
         await get_qtd(session, "ACME", _ASP)
+
+
+# --- list_company_estimates (all estimates for a company) -------------------
+
+
+async def test_list_company_estimates_returns_all_history_and_qtd(
+    session: AsyncSession,
+) -> None:
+    rows = await list_company_estimates(session, "ACME")
+    assert len(rows) == 100  # 5 KPIs x (16 historical + 4 qtd)
+    assert all(r.ticker == "ACME" for r in rows)
+    assert sum(r.estimate_type == EstimateType.HISTORICAL for r in rows) == 80
+    assert sum(r.estimate_type == EstimateType.QTD for r in rows) == 20
+
+
+async def test_list_company_estimates_unknown_ticker_raises(session: AsyncSession) -> None:
+    with pytest.raises(UnknownTicker):
+        await list_company_estimates(session, "ZZZ")
