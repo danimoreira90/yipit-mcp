@@ -172,3 +172,8 @@ async def test_get_companies_query_matches_name_ticker_sector(client: AsyncClien
     no_match = await client.get("/companies", params={"q": "zzz-no-match"})
     assert no_match.status_code == 200
     assert no_match.json() == []
+
+
+async def test_cors_allows_vite_dev_origin(client: AsyncClient) -> None:
+    response = await client.get("/sectors", headers={"Origin": "http://localhost:5173"})
+    assert response.headers.get("access-control-allow-origin") == "http://localhost:5173"
