@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 from backend.api.schemas import PublishEstimateRequest
 from backend.services.errors import UnknownKpi, UnknownTicker
 from backend.services.kpi_service import KpiService
-from backend.services.models import KpiEstimate
+from backend.services.models import Company, KpiEstimate
 
 
 def create_app(service: KpiService) -> FastAPI:
@@ -35,6 +35,14 @@ def create_app(service: KpiService) -> FastAPI:
     app.add_exception_handler(UnknownTicker, unknown_ticker_handler)
     app.add_exception_handler(UnknownKpi, unknown_kpi_handler)
 
+    async def get_sectors() -> list[str]:
+        return await service.list_sectors()
+
+    async def list_companies(sector: str | None = None, q: str | None = None) -> list[Company]:
+        # `sector` is an exact filter; `q` is a free-text substring over name/ticker/sector.
+        # An empty result is a valid empty list (no 404).
+        return await service.list_companies(sector=sector, query=q)
+
     async def get_company_estimates(ticker: str) -> list[KpiEstimate]:
         return await service.list_company_estimates(ticker)
 
@@ -52,6 +60,10 @@ def create_app(service: KpiService) -> FastAPI:
             as_of=body.as_of,
         )
 
+    app.add_api_route("/sectors", get_sectors, methods=["GET"], response_model=list[str])
+    app.add_api_route(
+        "/companies", list_companies, methods=["GET"], response_model=list[Company]
+    )
     app.add_api_route(
         "/companies/{ticker}/estimates",
         get_company_estimates,
