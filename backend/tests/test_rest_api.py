@@ -136,3 +136,45 @@ async def test_post_estimate_as_of_type_mismatch_returns_422(client: AsyncClient
     }
     response = await client.post("/companies/ACME/estimates", json=body)
     assert response.status_code == 422
+
+
+# --- GET /sectors and GET /companies (browse) -------------------------------
+
+
+async def test_get_sectors_returns_18_sorted(client: AsyncClient) -> None:
+    response = await client.get("/sectors")
+    assert response.status_code == 200
+    sectors = response.json()
+    assert len(sectors) == 18
+    assert sectors == sorted(sectors)
+
+
+async def test_get_companies_returns_all_20_deterministic(client: AsyncClient) -> None:
+    response = await client.get("/companies")
+    assert response.status_code == 200
+    companies = response.json()
+    assert len(companies) == 20
+    assert set(companies[0].keys()) == {"ticker", "name", "sector"}  # Option A shape
+    tickers = [c["ticker"] for c in companies]
+    assert tickers == sorted(tickers)  # deterministic order by ticker
+
+
+async def test_get_companies_filter_by_sector_returns_cloud_three(client: AsyncClient) -> None:
+    response = await client.get("/companies", params={"sector": "Cloud"})
+    assert response.status_code == 200
+    companies = response.json()
+    assert {c["ticker"] for c in companies} == {"CLD9", "NIMB", "STRT"}
+    assert all(c["sector"] == "Cloud" for c in companies)
+
+
+async def test_get_companies_query_matches_name_ticker_sector(client: AsyncClient) -> None:
+    # sector match: 'cloud' is the Cloud companies' sector (not in their names/tickers).
+    cloud = (await client.get("/companies", params={"q": "cloud"})).json()
+    assert {c["ticker"] for c in cloud} == {"CLD9", "NIMB", "STRT"}
+    # name/ticker match: 'acme' hits Acme E-commerce / ACME.
+    acme = (await client.get("/companies", params={"q": "acme"})).json()
+    assert any(c["ticker"] == "ACME" for c in acme)
+    # an empty result is a valid empty list, never a 404.
+    no_match = await client.get("/companies", params={"q": "zzz-no-match"})
+    assert no_match.status_code == 200
+    assert no_match.json() == []
