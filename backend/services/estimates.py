@@ -8,6 +8,7 @@ the SQL text; every user value is bound (no injection surface).
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +18,7 @@ from backend.services.errors import InvalidDateRange, NoQtdData, UnknownKpi
 from backend.services.models import (
     Company,
     CompanyOverview,
+    EstimateType,
     HistoryPoint,
     KpiEstimate,
     KpiOverview,
@@ -192,3 +194,89 @@ async def list_company_estimates(session: AsyncSession, ticker: str) -> list[Kpi
     ]
     rows.sort(key=lambda e: (e.kpi, e.period_start, e.estimate_type.value, e.as_of or date.min))
     return rows
+
+
+async def _unit_for_kpi(session: AsyncSession, kpi: str) -> str:
+    """The unit for a kpi, read from the data (unit is functionally determined by kpi).
+    Raises UnknownKpi (listing the dataset's KPIs) if the kpi is not one of them."""
+    unit = await session.scalar(
+        text("SELECT unit FROM kpi_estimates WHERE kpi = :kpi LIMIT 1"), {"kpi": kpi}
+    )
+    if unit is None:
+        rows = await session.execute(text("SELECT DISTINCT kpi FROM kpi_estimates"))
+        raise UnknownKpi(kpi, available=sorted(r.kpi for r in rows))
+    return unit
+
+
+# Upsert statements. The ON CONFLICT target matches the matching partial-unique index, and
+# the estimate_type / as_of literals honour the as_of_matches_type CHECK. All user values
+# are bound parameters — nothing from the request is interpolated into the SQL text.
+_RETURNING = (
+    "RETURNING ticker, kpi, unit, period, period_start, period_end, estimate_type, value, as_of"
+)
+_PUBLISH_HISTORICAL = text(
+    "INSERT INTO kpi_estimates "
+    "(ticker, kpi, unit, period, period_start, period_end, estimate_type, value, as_of) "
+    "VALUES (:ticker, :kpi, :unit, :period, :period_start, :period_end, 'historical', :value, NULL) "
+    "ON CONFLICT (ticker, kpi, period) WHERE estimate_type = 'historical' "
+    "DO UPDATE SET value = EXCLUDED.value, created_at = now() " + _RETURNING
+)
+_PUBLISH_QTD = text(
+    "INSERT INTO kpi_estimates "
+    "(ticker, kpi, unit, period, period_start, period_end, estimate_type, value, as_of) "
+    "VALUES (:ticker, :kpi, :unit, :period, :period_start, :period_end, 'qtd', :value, :as_of) "
+    "ON CONFLICT (ticker, kpi, period, as_of) WHERE estimate_type = 'qtd' "
+    "DO UPDATE SET value = EXCLUDED.value, created_at = now() " + _RETURNING
+)
+
+
+async def publish_estimate(
+    session: AsyncSession,
+    ticker: str,
+    *,
+    kpi: str,
+    period: str,
+    period_start: date,
+    period_end: date,
+    estimate_type: EstimateType,
+    value: Decimal,
+    as_of: date | None,
+) -> KpiEstimate:
+    """Publish (insert-or-update) an estimate and return the persisted row.
+
+    Validates the ticker (UnknownTicker) and kpi (UnknownKpi); derives the unit
+    server-side. Upserts via INSERT ... ON CONFLICT, targeting the partial-unique index
+    for the estimate_type — historical conflicts on (ticker, kpi, period); qtd on
+    (ticker, kpi, period, as_of). The caller commits.
+    """
+    await require_company(session, ticker)
+    unit = await _unit_for_kpi(session, kpi)
+
+    params: dict[str, object] = {
+        "ticker": ticker,
+        "kpi": kpi,
+        "unit": unit,
+        "period": period,
+        "period_start": period_start,
+        "period_end": period_end,
+        "value": value,
+    }
+    if estimate_type is EstimateType.HISTORICAL:
+        statement = _PUBLISH_HISTORICAL
+    else:
+        statement = _PUBLISH_QTD
+        params["as_of"] = as_of
+
+    row = (await session.execute(statement, params)).first()
+    assert row is not None  # INSERT ... RETURNING (with DO UPDATE) always yields one row
+    return KpiEstimate(
+        ticker=row.ticker,
+        kpi=row.kpi,
+        unit=row.unit,
+        period=row.period,
+        period_start=row.period_start,
+        period_end=row.period_end,
+        estimate_type=row.estimate_type,
+        value=row.value,
+        as_of=row.as_of,
+    )

@@ -8,6 +8,7 @@ transports (the spine). See docs/adr/ADR-003-kpi-service-facade.md.
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -15,6 +16,7 @@ from backend.services import companies, estimates
 from backend.services.models import (
     Company,
     CompanyOverview,
+    EstimateType,
     HistoryPoint,
     KpiEstimate,
     KpiUnit,
@@ -57,3 +59,30 @@ class KpiService:
     async def list_company_estimates(self, ticker: str) -> list[KpiEstimate]:
         async with self._sessionmaker() as session:
             return await estimates.list_company_estimates(session, ticker)
+
+    async def publish_estimate(
+        self,
+        ticker: str,
+        *,
+        kpi: str,
+        period: str,
+        period_start: date,
+        period_end: date,
+        estimate_type: EstimateType,
+        value: Decimal,
+        as_of: date | None,
+    ) -> KpiEstimate:
+        async with self._sessionmaker() as session:
+            estimate = await estimates.publish_estimate(
+                session,
+                ticker,
+                kpi=kpi,
+                period=period,
+                period_start=period_start,
+                period_end=period_end,
+                estimate_type=estimate_type,
+                value=value,
+                as_of=as_of,
+            )
+            await session.commit()
+            return estimate
