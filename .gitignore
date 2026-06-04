@@ -18,3 +18,10 @@ frontend/dist/
 .DS_Store
 
 commit-msg.txt
+# personal methodology docs (kept local, not part of submission)
+STANDARDS.md
+SIMPLICITY.md
+REVIEW-METHOD.md
+DATA-MODEL.md
+CLAUDE.md
+AGENTS.md
