@@ -16,3 +16,5 @@ frontend/dist/
 
 # OS / editor
 .DS_Store
+
+commit-msg.txt
