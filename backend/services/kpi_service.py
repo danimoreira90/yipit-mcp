@@ -10,6 +10,8 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from backend.services import companies, estimates
@@ -27,6 +29,17 @@ from backend.services.models import (
 class KpiService:
     def __init__(self, sessionmaker: async_sessionmaker[AsyncSession]) -> None:
         self._sessionmaker = sessionmaker
+
+    async def check_health(self) -> bool:
+        """Readiness probe: a trivial round-trip to confirm the DB answers. Returns
+        True when reachable; False on any connection or query failure (the probe
+        reports unavailability, it does not raise)."""
+        try:
+            async with self._sessionmaker() as session:
+                await session.execute(text("SELECT 1"))
+            return True
+        except (SQLAlchemyError, OSError):
+            return False
 
     async def list_sectors(self) -> list[str]:
         async with self._sessionmaker() as session:

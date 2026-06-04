@@ -7,11 +7,17 @@ exception handlers, so route bodies stay one line.
 
 from __future__ import annotations
 
-from fastapi import FastAPI, Request
+from collections.abc import Awaitable, Callable
+from time import perf_counter
+from uuid import uuid4
+
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from backend.api.schemas import PublishEstimateRequest
+from backend.observability import log_event
 from backend.services.errors import UnknownKpi, UnknownTicker
 from backend.services.kpi_service import KpiService
 from backend.services.models import Company, KpiEstimate
@@ -27,7 +33,28 @@ def create_app(service: KpiService) -> FastAPI:
         allow_origins=["http://localhost:5173"],
         allow_methods=["GET", "POST"],
         allow_headers=["*"],
+        expose_headers=["X-Request-ID"],
     )
+
+    async def request_id_and_logging(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        # Tag every response with a request id and emit one structured log line.
+        request_id = str(uuid4())
+        start = perf_counter()
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        log_event(
+            "request",
+            request_id=request_id,
+            method=request.method,
+            path=request.url.path,
+            status=response.status_code,
+            latency_ms=round((perf_counter() - start) * 1000, 2),
+        )
+        return response
+
+    app.add_middleware(BaseHTTPMiddleware, dispatch=request_id_and_logging)
 
     async def unknown_ticker_handler(request: Request, exc: Exception) -> JSONResponse:
         return JSONResponse(
@@ -42,6 +69,12 @@ def create_app(service: KpiService) -> FastAPI:
 
     app.add_exception_handler(UnknownTicker, unknown_ticker_handler)
     app.add_exception_handler(UnknownKpi, unknown_kpi_handler)
+
+    async def health() -> JSONResponse:
+        # Thin + DB-free: the facade owns the SELECT 1; the route just maps the result.
+        if await service.check_health():
+            return JSONResponse(status_code=200, content={"status": "ok"})
+        return JSONResponse(status_code=503, content={"status": "unavailable"})
 
     async def get_sectors() -> list[str]:
         return await service.list_sectors()
@@ -67,6 +100,7 @@ def create_app(service: KpiService) -> FastAPI:
             as_of=body.as_of,
         )
 
+    app.add_api_route("/health", health, methods=["GET"])
     app.add_api_route("/sectors", get_sectors, methods=["GET"], response_model=list[str])
     app.add_api_route(
         "/companies", list_companies, methods=["GET"], response_model=list[Company]

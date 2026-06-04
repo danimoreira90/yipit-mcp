@@ -8,13 +8,16 @@ under backend/mcp to avoid a name collision with the `mcp` PyPI SDK (ADR-002).
 
 from __future__ import annotations
 
-from collections.abc import Coroutine
+import functools
+from collections.abc import Callable, Coroutine
 from datetime import date
 from typing import Any, TypeVar
+from uuid import uuid4
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 
+from backend.observability import log_event
 from backend.services.errors import (
     InvalidDateRange,
     NoQtdData,
@@ -43,6 +46,21 @@ async def _guard(coro: Coroutine[Any, Any, _T]) -> _T:
         return await coro
     except _SERVICE_ERRORS as exc:
         raise ToolError(str(exc)) from exc
+
+
+def _logged(
+    tool: Callable[..., Coroutine[Any, Any, _T]],
+) -> Callable[..., Coroutine[Any, Any, _T]]:
+    """Wrap a tool so each call emits one structured log line (call id, tool name, arg
+    summary — no secrets). functools.wraps preserves the name/signature/docstring, so
+    FastMCP still derives the same schema and description from the original function."""
+
+    @functools.wraps(tool)
+    async def wrapper(*args: Any, **kwargs: Any) -> _T:
+        log_event("mcp_tool_call", call_id=str(uuid4()), tool=tool.__name__, args=dict(kwargs))
+        return await tool(*args, **kwargs)
+
+    return wrapper
 
 
 def build_server(service: KpiService) -> FastMCP:
@@ -98,10 +116,10 @@ def build_server(service: KpiService) -> FastMCP:
         guessed. Use this to summarize a company at a glance."""
         return await _guard(service.get_company_overview(ticker))
 
-    mcp.add_tool(list_sectors)
-    mcp.add_tool(list_companies)
-    mcp.add_tool(list_kpis)
-    mcp.add_tool(get_kpi_history)
-    mcp.add_tool(get_qtd)
-    mcp.add_tool(get_company_overview)
+    mcp.add_tool(_logged(list_sectors))
+    mcp.add_tool(_logged(list_companies))
+    mcp.add_tool(_logged(list_kpis))
+    mcp.add_tool(_logged(get_kpi_history))
+    mcp.add_tool(_logged(get_qtd))
+    mcp.add_tool(_logged(get_company_overview))
     return mcp
