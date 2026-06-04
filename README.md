@@ -187,3 +187,4 @@ cd frontend; npm test  # frontend (vitest)
 - The seed truncates and reloads on every run; a faster path would re-seed only changed rows for large datasets.
 - Make `backend` pip-installable (drop `package = false`) so the MCP client config no longer needs `PYTHONPATH`.
 - Run the MCP tool-ergonomics eval (Phase 8, Claude Haiku) and record the `pass@3` / `pass^3` signal here.
+- Add an automated MCP tool-ergonomics eval — scripted agent tasks scored on tool selection and error recovery (a pass@k signal) — to guard tool quality as the surface grows.
